@@ -1,59 +1,63 @@
-
 const express = require('express');
 const axios = require('axios');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const app = express();
+const cors = require('cors'); // Import the cors middleware
 
+const app = express();
 const port = 3001;
 
-app.use(bodyParser.json());
-app.use(cors({
+const apiKey = '35a9f735-e580-439c-9059-cbcfc22e4389';
+const coinmarketcapApiUrl = 'https://pro-api.coinmarketcap.com/v1';
 
-  origin: '*',
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  allowedHeaders: 'Content-Type',
-}));
+// Use cors middleware with all origins allowed
+app.use(cors());
 
+// Middleware to parse JSON requests
+app.use(express.json());
 
-app.get('/api/cryptocurrencies', async (req, res) => {
+// Endpoint to fetch the top 100 cryptocurrencies and supported currencies
+app.get('/api/top100', async (req, res) => {
   try {
-    const response = await axios.get('https://api.coingecko.com/api/v3/coins/markets', {
+    const response = await axios.get(`${coinmarketcapApiUrl}/cryptocurrency/listings/latest`, {
       params: {
-        vs_currency: 'usd',
-        order: 'market_cap_desc',
-        per_page: 100,
-        page: 1,
-        sparkline: false,
+        start: 1,
+        limit: 100,
+        convert: 'USD', // You can change the convert parameter to other currencies
+      },
+      headers: {
+        'X-CMC_PRO_API_KEY': apiKey,
       },
     });
-    res.json(response.data);
+
+    res.json(response.data.data);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-
+// Endpoint for currency conversion
 app.post('/api/convert', async (req, res) => {
   const { sourceCurrency, amount, targetCurrency } = req.body;
 
   try {
-    const response = await axios.get('https://api.coingecko.com/api/v3/simple/price', {
+    const response = await axios.get(`${coinmarketcapApiUrl}/tools/price-conversion`, {
       params: {
-        ids: sourceCurrency,
-        vs_currencies: targetCurrency,
+        amount,
+        symbol: sourceCurrency,
+        convert: targetCurrency,
+      },
+      headers: {
+        'X-CMC_PRO_API_KEY': apiKey,
       },
     });
 
-    const exchangeRate = response.data[sourceCurrency][targetCurrency];
-    const convertedAmount = amount * exchangeRate;
-
-    res.json({ convertedAmount });
+    res.json(response.data.data);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Server is running on http://localhost:${port}`);
 });
